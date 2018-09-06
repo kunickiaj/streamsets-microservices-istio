@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+ name: ms1
+spec:
+ host: ms1.datacollector.svc.cluster.local
+ trafficPolicy:
+   tls:
+     mode: ISTIO_MUTUAL
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+ name: ms-datacollector
+spec:
+ host: ms-datacollector.datacollector.svc.cluster.local
+ trafficPolicy:
+   tls:
+     mode: ISTIO_MUTUAL

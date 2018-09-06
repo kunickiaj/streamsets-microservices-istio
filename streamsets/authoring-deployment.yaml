@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: authoring-datacollector
+  namespace: datacollector
+spec:
+  clusterIP: None
+  ports:
+  - name: http
+    port: 18630
+    targetPort: 18630
+    protocol: TCP
+  selector:
+    app: authoring-datacollector
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: authoring-datacollector
+  namespace: datacollector
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+  - host: authoring.adam.streamsets.xyz
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: authoring-datacollector
+          servicePort: http
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: authoring-datacollector
+  namespace: datacollector
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app : authoring-datacollector
+    spec:
+      containers:
+      - name : datacollector
+        image: kunickiaj/datacollector:istio-demo
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 18630
+        readinessProbe:
+          httpGet:
+            path: /public-rest/ping
+            port: 18630
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        env:
+        - name: SDC_CONF_SDC_BASE_HTTP_URL
+          value: https://authoring.adam.streamsets.xyz
+        - name: SDC_CONF_HTTP_ENABLE_FORWARDED_REQUESTS
+          value: "true"
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 1280Mi

@@ -1,0 +1,105 @@
+---
+kind: Secret
+apiVersion: v1
+metadata:
+  name: streamsets-control-agent-credentials
+  labels:
+    app: streamsets-control-agent
+type: Opaque
+data:
+
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: streamsets-control-agent
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  namespace: datacollector
+  name: streamsets-control-agent
+rules:
+- apiGroups: ["", "extensions", "autoscaling"]
+  resources: ["pods", "deployments", "replicasets", "horizontalpodautoscalers", "services", "ingresses", "persistentvolumeclaims"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["streamsets-control-agent-credentials"]
+  verbs: ["get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: streamsets-control-agent
+  namespace: datacollector
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: streamsets-control-agent
+subjects:
+  - kind: ServiceAccount
+    name: streamsets-control-agent
+    namespace: datacollector
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: streamsets-control-agent
+data:
+  agent.yaml: |-
+    agent:
+      id: "streamsets-agent-<add unique identifier>"
+      name: "streamsets-agent-<add unique identifier>"
+      controlHub:
+        url: "https://cloud.streamsets.com"
+        orgID: "<fill me in>"
+      token: "<fill me in>"
+      eventPollingInterval: "5s"
+      httpTimeout: "2s"
+      statusSyncInterval: "5s"
+    kubernetes:
+      secret: "streamsets-control-agent-credentials"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: streamsets-control-agent
+  labels:
+    app: streamsets-control-agent
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: streamsets-control-agent
+    spec:
+      serviceAccountName: streamsets-control-agent
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: streamsets-control-agent
+          image: "kunickiaj/streamsets-agent:latest"
+          imagePullPolicy: Always
+          command: ["/streamsets-agent"]
+          args: ["--config", "/config/agent.yaml", "kubernetes", "run"]
+          volumeMounts:
+          - name: config
+            mountPath: /config
+      volumes:
+        - name: config
+          configMap:
+            name: streamsets-control-agent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: streamsets-control-agent
+  namespace: datacollector
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+  selector:
+    app: streamsets-control-agent

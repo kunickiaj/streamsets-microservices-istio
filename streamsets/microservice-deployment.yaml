@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ms1-datacollector
+  namespace: datacollector
+spec:
+  clusterIP: None
+  ports:
+  - name: http
+    port: 18630
+    targetPort: 18630
+    protocol: TCP
+  selector:
+    app: ms1-datacollector
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ms1
+  namespace: datacollector
+spec:
+  type: ClusterIP
+  ports:
+  - name: http-ms1
+    port: 40000
+    targetPort: 40000
+    protocol: TCP
+  selector:
+    app: ms1-datacollector
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: ms1-datacollector
+  namespace: datacollector
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ms1-datacollector
+    spec:
+      containers:
+      - name : datacollector
+        image: kunickiaj/datacollector:istio-demo
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 18630
+        - containerPort: 40000
+        readinessProbe:
+          httpGet:
+            path: /public-rest/ping
+            port: 18630
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        env:
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 1280Mi

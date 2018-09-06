@@ -1,0 +1,7 @@
+---
+grafana:
+  enabled: true
+tracing:
+  enabled: true
+kiali:
+  enabled: true
