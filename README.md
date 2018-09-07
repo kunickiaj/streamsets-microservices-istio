@@ -43,6 +43,57 @@ Demo of StreamSets Data Collector Microservices Pipelines running with Istio
     1. `kubectl create namespace datacollector`
     1. `kubectl label namespace datacollector istio-injection=enabled`
 
+### Apply Istio Resources
+
+Istio has many types of Custom Resource Definitions (CRDs) for interacting with it.
+
+DestinationRules define settings and policy for how clients interact with a service.
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+ name: ms1
+spec:
+ host: ms1.datacollector.svc.cluster.local
+ trafficPolicy:
+   tls:
+     mode: ISTIO_MUTUAL
+```
+
+The above DestinationRule informs clients that wish to talk to the `ms1` service that Istio managed mutual TLS (mTLS) is required. This ensures that only authenticated and encrypted traffic is permitted. Unauthenticated client connections will be dropped.
+
+In some cases, services must talk to endpoints outside of the service mesh. In our case this is Control Hub, which is not part of the mesh, and hosted externally by StreamSets.
+
+In order to permit a meshed service to communicate with it, we define a ServiceEntry. This can be thought of as an egress firewall rule. By default all egress traffic is blocked.
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: control-hub-cloud-http
+spec:
+  hosts:
+  - cloud.streamsets.com
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DNS
+  location: MESH_EXTERNAL
+```
+
+Above, an example ServiceEntry for a single host and port.
+
+Apply the DestinationRules and ServiceEntry defined in the `istio/destinationrules.yaml` and `istio/serviceentry.yaml` by running:
+
+```bash
+istioctl apply -f istio/destinationrules.yaml
+istioctl apply -f istio/serviceentry.yaml
+```
+
+*Tip: `istioctl` and `kubectl` can be used interchageably in most cases. `istioctl` has a more customized output format when interacting with Istio resources. e.g. `istioctl get destinationrules`*
+
 ### Install StreamSets Control Agent
 
 This demo currently requires use of a Golang port of control agent in order to work properly with Istio.
